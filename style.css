@@ -1,11 +1,12 @@
-Also, in index.html, the button and title had background: linear-gradient(...); -webkit-background-clip: text; without -webkit-text-fill-color: transparent; on the upgrade/safezone headings, or if style.css got overwritten with only the snippet!
+2. Also, in `index.html`, the button and title had `background: linear-gradient(...); -webkit-background-clip: text;` without `-webkit-text-fill-color: transparent;` on the upgrade/safezone headings, or if `style.css` got overwritten with only the snippet!
 
-Let's send the COMPLETE, 100% full style.css file (no ... existing code ... placeholders, using proper css language tag) so the user can simply copy/replace style.css in full, and also make sure index.html and style.css have crisp, polished neon styling everywhere! Let's double check style.css rules to make sure every single class in index.html is styled cleanly.
+Let's send the **COMPLETE, 100% full `style.css`** file (no `... existing code ...` placeholders, using proper `css` language tag) so the user can simply copy/replace `style.css` in full, and also make sure `index.html` and `style.css` have crisp, polished neon styling everywhere! Let's double check `style.css` rules to make sure every single class in `index.html` is styled cleanly.
 
-Let's write out the brief explanation and output the complete style.css file.Isso aconteceu porque na atualização anterior foi gerado apenas um trecho parcial do style.css (com comentários de corte), fazendo com que parte dos estilos originais acabasse ficando de fora quando você substituiu o arquivo!
+Let's write out the brief explanation and output the complete `style.css` file.Isso aconteceu porque na atualização anterior foi gerado apenas um trecho parcial do `style.css` (com comentários de corte), fazendo com que parte dos estilos originais acabasse ficando de fora quando você substituiu o arquivo!
 
-Vou te enviar agora o arquivo style.css 100% completo (sem nenhum corte) e com acabamento visual reforçado para todas as telas, botões, HUD, oficina e dispositivos móveis.
+Vou te enviar agora o arquivo **`style.css` 100% completo** (sem nenhum corte) e com acabamento visual reforçado para todas as telas, botões, HUD, oficina e dispositivos móveis.
 
+```css:style.css:style.css
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap');
 
 :root {
