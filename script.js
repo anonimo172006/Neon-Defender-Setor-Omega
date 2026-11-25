@@ -134,10 +134,13 @@ const MAX_STAGES = 5;
 const STAGE_BOSS_GOAL = 10000;
 
 let gameState = 'MENU';
+let isInfiniteMode = false;
 let difficultyMult = 1.0;
 let score = 0;
 let stageScore = 0;
 let stage = 1;
+let nextInfiniteBossScore = 20000;
+let infiniteBossCount = 2;
 let currentSector = SECTOR_TYPES[0];
 let upcomingSector = SECTOR_TYPES[1];
 
@@ -158,7 +161,7 @@ let workshopWeldSparks = [];
 
 // Entidades
 let player;
-let boss = null;
+let bosses = []; // Suporta 1 ou múltiplos chefões simultâneos
 let bullets = [];
 let enemyBullets = [];
 let enemies = [];
@@ -501,8 +504,10 @@ class Player {
                         e.takeDamage(this.damage * 0.35, ox, oy);
                     }
                 }
-                if (boss && !boss.dead && Math.hypot(ox - boss.x, oy - boss.y) < boss.radius + 9) {
-                    boss.takeDamage(this.damage * 0.25, ox, oy);
+                for (let b of bosses) {
+                    if (!b.dead && Math.hypot(ox - b.x, oy - b.y) < b.radius + 9) {
+                        b.takeDamage(this.damage * 0.25, ox, oy);
+                    }
                 }
             }
         }
@@ -690,9 +695,11 @@ class Enemy {
         this.aimCharge = 0;
         this.frontShield = 0;
 
-        const hpMult = (1 + (stage - 1) * 0.34) * difficultyMult;
-        const spdMult = 1 + (stage - 1) * 0.09 * difficultyMult;
-        this.fireRateMult = Math.max(0.58, 1 - (stage - 1) * 0.09);
+        const waveScale = isInfiniteMode ? (1 + (stage - 1) * 0.42) : (1 + (stage - 1) * 0.34);
+        const hpMult = waveScale * difficultyMult;
+        const spdMult = 1 + Math.min(0.85, (stage - 1) * 0.09) * difficultyMult;
+        this.dmgMult = isInfiniteMode ? (1 + (stage - 1) * 0.25) : 1.0;
+        this.fireRateMult = Math.max(0.52, 1 - (stage - 1) * 0.09);
 
         if (type === 'interceptor') {
             this.radius = 15; this.speed = 2.65 * spdMult;
@@ -747,13 +754,13 @@ class Enemy {
             if (this.type === 'tank') {
                 this.shootTimer--;
                 if (this.shootTimer <= 0) {
-                    const spd = (4.1 + stage * 0.2) * currentSector.projMult;
+                    const spd = (4.1 + Math.min(3, stage * 0.2)) * currentSector.projMult;
                     for (let s = -0.24; s <= 0.24; s += 0.24) {
                         enemyBullets.push(new Bullet(
                             this.x, this.y,
                             Math.cos(this.angle + s) * spd,
                             Math.sin(this.angle + s) * spd,
-                            14, 5, '#ffe600', false
+                            Math.round(14 * this.dmgMult), 5, '#ffe600', false
                         ));
                     }
                     this.shootTimer = Math.round(145 * this.fireRateMult);
@@ -767,7 +774,7 @@ class Enemy {
                         this.y + Math.sin(this.angle) * 22,
                         Math.cos(this.angle) * spd,
                         Math.sin(this.angle) * spd,
-                        15, 5, '#38bdf8', false
+                        Math.round(15 * this.dmgMult), 5, '#38bdf8', false
                     ));
                     this.shootTimer = Math.round(125 * this.fireRateMult);
                 }
@@ -783,13 +790,13 @@ class Enemy {
 
             this.shootTimer--;
             if (this.shootTimer <= 0) {
-                const spd = (4.5 + stage * 0.22) * currentSector.projMult;
+                const spd = (4.5 + Math.min(3, stage * 0.22)) * currentSector.projMult;
                 enemyBullets.push(new Bullet(
                     this.x + Math.cos(this.angle) * 18,
                     this.y + Math.sin(this.angle) * 18,
                     Math.cos(this.angle) * spd,
                     Math.sin(this.angle) * spd,
-                    12, 4.5, '#ff00ea', false
+                    Math.round(12 * this.dmgMult), 4.5, '#ff00ea', false
                 ));
                 this.shootTimer = Math.max(55, Math.round(130 * this.fireRateMult));
             }
@@ -813,7 +820,7 @@ class Enemy {
                     this.y + Math.sin(this.angle) * 20,
                     Math.cos(this.angle) * spd,
                     Math.sin(this.angle) * spd,
-                    18, 4.5, '#00f3ff', false
+                    Math.round(18 * this.dmgMult), 4.5, '#00f3ff', false
                 ));
                 playSound('laser');
                 this.aimCharge = 0;
@@ -833,7 +840,7 @@ class Enemy {
                         this.y + Math.sin(this.angle) * 18,
                         Math.cos(this.angle + s) * spd,
                         Math.sin(this.angle + s) * spd,
-                        15, 4.8, '#c84bff', false
+                        Math.round(15 * this.dmgMult), 4.8, '#c84bff', false
                     ));
                 }
                 this.shootTimer = Math.round(95 * this.fireRateMult);
@@ -927,20 +934,26 @@ class Enemy {
 
 // ================= 4 CHEFÕES ÚNICOS COM SILHUETAS & ATAQUES EXCLUSIVOS =================
 class Boss {
-    constructor(bossType, stageNum) {
+    constructor(bossType, stageNum, slotIndex = 0, totalSlots = 1) {
         this.bossType = bossType; // 'omega', 'hydra', 'colossus', 'sovereign'
-        this.x = canvas.width / 2;
-        this.y = -95;
-        this.targetY = canvas.height * 0.24;
+        this.slotIndex = slotIndex;
+        this.totalSlots = totalSlots;
+
+        const spacing = canvas.width / (totalSlots + 1);
+        this.x = spacing * (slotIndex + 1);
+        this.y = -95 - slotIndex * 35;
+        this.targetY = canvas.height * (0.22 + (slotIndex % 2) * 0.08);
         this.radius = bossType === 'sovereign' ? 68 : 54;
 
         const baseHp = bossType === 'sovereign' ? 4200 : (1500 + (stageNum - 1) * 780);
-        this.maxHp = Math.round(baseHp * difficultyMult);
+        const multiBossFactor = totalSlots > 1 ? 0.78 : 1.0;
+        this.maxHp = Math.round(baseHp * difficultyMult * multiBossFactor);
         this.hp = this.maxHp;
+        this.dmgMult = isInfiniteMode ? (1 + (stageNum - 1) * 0.2) : 1.0;
 
         this.angle = 0;
-        this.movePhase = 0;
-        this.timer = 0;
+        this.movePhase = slotIndex * 1.6;
+        this.timer = slotIndex * 30;
         this.spiralAngle = 0;
         this.laserAngle = Math.PI / 2;
         this.laserActive = false;
@@ -972,8 +985,11 @@ class Boss {
         this.timer++;
         this.movePhase += 0.014;
 
-        const cx = canvas.width / 2 + Math.cos(this.movePhase) * (canvas.width * 0.27);
-        const cy = canvas.height * 0.3 + Math.sin(this.movePhase * 1.6) * (canvas.height * 0.14);
+        const sectorWidth = canvas.width / this.totalSlots;
+        const baseCenterX = sectorWidth * (this.slotIndex + 0.5);
+        const swayAmp = (sectorWidth * 0.34);
+        const cx = baseCenterX + Math.cos(this.movePhase) * swayAmp;
+        const cy = canvas.height * 0.28 + Math.sin(this.movePhase * 1.6) * (canvas.height * 0.13);
         this.x += (cx - this.x) * 0.03;
         this.y += (cy - this.y) * 0.03;
 
@@ -1118,7 +1134,7 @@ class Boss {
             const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
             if (!sw.hit && Math.abs(distToPlayer - sw.r) < player.radius + 6) {
                 sw.hit = true;
-                player.takeDamage(18);
+                player.takeDamage(Math.round(18 * this.dmgMult));
             }
         }
         this.shockwaves = this.shockwaves.filter(sw => sw.r < sw.maxR);
@@ -1135,8 +1151,30 @@ class Boss {
             if (proj > 0 && proj < 950) {
                 const perpDist = Math.abs(px * ly - py * lx);
                 if (perpDist < player.radius + 6) {
-                    player.takeDamage(16);
+                    player.takeDamage(Math.round(16 * this.dmgMult));
                 }
+            }
+        }
+    }
+
+    takeDamage(dmg, hx, hy) {
+        if (this.entering || this.dead) return;
+        this.hp -= dmg;
+        createExplosion(hx || this.x, hy || this.y, '#ffe600', 4);
+        updateBossHudBar();
+
+        if (this.hp <= 0) {
+            this.dead = true;
+            playSound('explosion');
+            screenShake = 22;
+            createExplosion(this.x, this.y, '#ff2a55', 50);
+            createExplosion(this.x, this.y, '#ffe600', 40);
+
+            if (bosses.every(b => b.dead)) {
+                bosses = [];
+                onBossDefeated();
+            } else {
+                updateBossHudBar();
             }
         }
     }
@@ -1486,8 +1524,8 @@ function setupSectorEnvironment(sector) {
 }
 
 function scheduleEnemySpawn() {
-    if (boss) return;
-    const maxEnemies = Math.min(6 + stage * 2, 17);
+    if (bosses.length > 0) return;
+    const maxEnemies = Math.min(6 + stage * 2, isInfiniteMode ? 22 : 17);
     if (enemies.length + spawnWarnings.length >= maxEnemies) return;
 
     const edge = Math.floor(Math.random() * 4);
@@ -1500,7 +1538,8 @@ function scheduleEnemySpawn() {
 
     if (Math.hypot(x - player.x, y - player.y) < 145) return;
 
-    const roster = PHASE_ENEMY_ROSTER[stage] || PHASE_ENEMY_ROSTER[5];
+    const effectiveStage = Math.min(5, stage);
+    const roster = PHASE_ENEMY_ROSTER[effectiveStage] || PHASE_ENEMY_ROSTER[5];
     const type = roster[Math.floor(Math.random() * roster.length)];
 
     spawnWarnings.push({ x, y, type, timer: 45 });
@@ -1533,20 +1572,58 @@ function updateSpawnWarnings() {
 }
 
 // ================= PONTUAÇÃO, BUFFS ESCALÁVEIS & CHEFÕES =================
+function updateBossHudBar() {
+    if (bosses.length === 0) {
+        bossHud.classList.add('hidden');
+        return;
+    }
+    const totalHp = bosses.reduce((acc, b) => acc + Math.max(0, b.hp), 0);
+    const totalMaxHp = bosses.reduce((acc, b) => acc + b.maxHp, 0);
+    bossHpFill.style.width = `${Math.max(0, (totalHp / totalMaxHp) * 100)}%`;
+
+    if (bosses.length === 1) {
+        document.getElementById('boss-name').textContent = bosses[0].displayName;
+    } else {
+        const aliveCount = bosses.filter(b => !b.dead).length;
+        document.getElementById('boss-name').textContent = `ESQUADRÃO ÔMEGA (${aliveCount} CHEFÕES ATIVOS)`;
+    }
+}
+
 function addScore(pts) {
     score += pts;
     stageScore += pts;
-    updateHUD();
 
-    if (!boss && stageScore >= STAGE_BOSS_GOAL) {
-        triggerBossEncounter();
-        return;
+    if (isInfiniteMode) {
+        // Aumenta a onda/dificuldade a cada 10.000 pontos no modo infinito
+        const newWave = Math.floor(score / 10000) + 1;
+        if (newWave > stage) {
+            stage = newWave;
+            setupSectorEnvironment(pickRandomSector(currentSector.id));
+            floatingTexts.push(new FloatingText(player.x, player.y - 45, `ONDA ${stage} — AMEAÇA ELEVADA!`, '#ff00ea', 16));
+        }
+
+        // Invoca múltiplos chefões aos 20k (2), 40k (3), 60k+ (todos os 4)
+        if (bosses.length === 0 && score >= nextInfiniteBossScore) {
+            triggerInfiniteBossSquad(infiniteBossCount);
+            nextInfiniteBossScore += 20000;
+            infiniteBossCount = Math.min(4, infiniteBossCount + 1);
+            updateHUD();
+            return;
+        }
+    } else {
+        if (bosses.length === 0 && stageScore >= STAGE_BOSS_GOAL) {
+            triggerBossEncounter();
+            updateHUD();
+            return;
+        }
     }
+
+    updateHUD();
 
     if (score >= nextBuffThreshold) {
         buffCount++;
         prevBuffThreshold = nextBuffThreshold;
-        const step = 2500 + buffCount * 750;
+        const step = isInfiniteMode ? (2400 + Math.min(4500, buffCount * 350)) : (2500 + buffCount * 750);
         nextBuffThreshold += step;
         openCombatBuffModal();
     }
@@ -1564,13 +1641,12 @@ function triggerBossEncounter() {
         lastBossType = chosenType;
     }
 
-    boss = new Boss(chosenType, stage);
-    document.getElementById('boss-name').textContent = boss.displayName;
-    bossHpFill.style.width = '100%';
+    bosses = [new Boss(chosenType, stage, 0, 1)];
+    updateBossHudBar();
     bossHud.classList.remove('hidden');
 
     const banner = document.getElementById('alert-banner');
-    banner.textContent = `⚠️ ALERTA: ${boss.displayName}! ⚠️`;
+    banner.textContent = `⚠️ ALERTA: ${bosses[0].displayName}! ⚠️`;
     banner.classList.remove('hidden');
     playSound('bossAlert');
     screenShake = 16;
@@ -1578,19 +1654,42 @@ function triggerBossEncounter() {
     setTimeout(() => banner.classList.add('hidden'), 3200);
 }
 
-function onBossDefeated() {
-    playSound('explosion');
-    screenShake = 26;
-    createExplosion(boss.x, boss.y, '#ff2a55', 60);
-    createExplosion(boss.x, boss.y, '#c84bff', 50);
-    createExplosion(boss.x, boss.y, '#ffe600', 45);
+function triggerInfiniteBossSquad(count) {
+    enemies = [];
+    spawnWarnings = [];
+    enemyBullets = [];
 
+    const allTypes = ['omega', 'hydra', 'colossus', 'sovereign'];
+    const shuffled = count >= 4 ? allTypes : allTypes.sort(() => 0.5 - Math.random()).slice(0, count);
+
+    bosses = shuffled.map((bType, idx) => new Boss(bType, stage, idx, shuffled.length));
+    updateBossHudBar();
+    bossHud.classList.remove('hidden');
+
+    const banner = document.getElementById('alert-banner');
+    banner.textContent = count >= 4
+        ? '☠️ ALERTA MÁXIMO: TODOS OS 4 CHEFÕES INVADIRAM A ARENA! ☠️'
+        : `⚠️ ALERTA DUPLO: ${count} CHEFÕES SIMULTÂNEOS! ⚠️`;
+    banner.classList.remove('hidden');
+    playSound('bossAlert');
+    screenShake = 22;
+
+    setTimeout(() => banner.classList.add('hidden'), 3600);
+}
+
+function onBossDefeated() {
     const stageBonus = 2000 * stage;
     score += stageBonus;
-    boss = null;
     bossHud.classList.add('hidden');
     enemyBullets = [];
     enemies = [];
+
+    if (isInfiniteMode) {
+        // Sem zona segura / sem reparos na plataforma no Modo Infinito!
+        floatingTexts.push(new FloatingText(player.x, player.y - 40, `ESQUADRÃO DESTRUÍDO! +${stageBonus} PTS`, '#ffe600', 16));
+        updateHUD();
+        return;
+    }
 
     if (stage >= MAX_STAGES) {
         setTimeout(triggerVictory, 900);
@@ -1607,7 +1706,11 @@ function openCombatBuffModal() {
     keys['Space'] = false;
     mouse.down = false;
 
-    const available = COMBAT_BUFFS.filter(u => (player.buffLevels[u.id] || 0) < u.maxLvl);
+    // No Modo Infinito, os limites são removidos (99) para escalar quase infinitamente
+    const available = COMBAT_BUFFS.filter(u => {
+        const limit = isInfiniteMode ? 99 : u.maxLvl;
+        return (player.buffLevels[u.id] || 0) < limit;
+    });
     activeUpgradeChoices = available.sort(() => 0.5 - Math.random()).slice(0, 3);
 
     const container = document.getElementById('cards-container');
@@ -1915,15 +2018,24 @@ function initStars() {
 
 function updateHUD() {
     scoreDisplay.textContent = score.toLocaleString('pt-BR');
-    document.getElementById('stage-label').textContent = `FASE ${stage} / ${MAX_STAGES}`;
+    document.getElementById('stage-label').textContent = isInfiniteMode
+        ? `♾️ ONDA ${stage}`
+        : `FASE ${stage} / ${MAX_STAGES}`;
     document.getElementById('next-upg-txt').textContent = nextBuffThreshold.toLocaleString('pt-BR');
 
     const buffPct = Math.min(100, Math.max(0, ((score - prevBuffThreshold) / (nextBuffThreshold - prevBuffThreshold)) * 100));
     upgradeBar.style.width = `${buffPct}%`;
 
-    if (boss) {
-        document.getElementById('boss-goal-txt').textContent = 'CHEFÃO ATIVO NA ARENA!';
+    if (bosses.length > 0) {
+        document.getElementById('boss-goal-txt').textContent = bosses.length > 1
+            ? `${bosses.length} CHEFÕES NA ARENA!`
+            : 'CHEFÃO ATIVO NA ARENA!';
         stageBar.style.width = '100%';
+    } else if (isInfiniteMode) {
+        const remBoss = Math.max(0, nextInfiniteBossScore - score);
+        document.getElementById('boss-goal-txt').textContent = `PRÓXIMOS ${infiniteBossCount} BOSSES EM ${remBoss.toLocaleString('pt-BR')} PTS`;
+        const prevMilestone = nextInfiniteBossScore - 20000;
+        stageBar.style.width = `${Math.min(100, ((score - prevMilestone) / 20000) * 100)}%`;
     } else {
         const rem = Math.max(0, STAGE_BOSS_GOAL - stageScore);
         document.getElementById('boss-goal-txt').textContent = `FALTAM ${rem.toLocaleString('pt-BR')} PTS P/ CHEFÃO`;
@@ -2022,16 +2134,13 @@ function checkCollisions() {
                         ast.dead = true;
                         createExplosion(ast.x, ast.y, '#00ff88', 18);
                         addScore(90);
-                    }
+        if (!b.dead && bosses.length > 0) {
+            for (let bossObj of bosses) {
+                if (!bossObj.dead && Math.hypot(b.x - bossObj.x, b.y - bossObj.y) < bossObj.radius + b.radius) {
+                    b.dead = true;
+                    bossObj.takeDamage(b.damage, b.x, b.y);
                     break;
                 }
-            }
-        }
-
-        if (!b.dead && boss && !boss.dead) {
-            if (Math.hypot(b.x - boss.x, b.y - boss.y) < boss.radius + b.radius) {
-                b.dead = true;
-                boss.takeDamage(b.damage, b.x, b.y);
             }
         }
     }
@@ -2045,8 +2154,9 @@ function checkCollisions() {
 
     for (let e of enemies) {
         if (!e.dead && Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius - 4) {
+            const crashDmg = isInfiniteMode ? Math.round(18 * (1 + (stage - 1) * 0.2)) : 18;
             e.takeDamage(999);
-            player.takeDamage(18);
+            player.takeDamage(crashDmg);
         }
     }
 
@@ -2058,8 +2168,10 @@ function checkCollisions() {
         }
     }
 
-    if (boss && !boss.dead && Math.hypot(boss.x - player.x, boss.y - player.y) < boss.radius + player.radius) {
-        player.takeDamage(24);
+    for (let bossObj of bosses) {
+        if (!bossObj.dead && Math.hypot(bossObj.x - player.x, bossObj.y - player.y) < bossObj.radius + player.radius) {
+            player.takeDamage(24);
+        }
     }
 }
 
@@ -2077,7 +2189,7 @@ function gameLoop() {
 
     drawArenaBackground();
 
-    const spawnRate = Math.max(34, Math.round((95 - stage * 9) / currentSector.spawnMult));
+    const spawnRate = Math.max(28, Math.round((95 - stage * 9) / currentSector.spawnMult));
     if (frameCount % spawnRate === 0) scheduleEnemySpawn();
     updateSpawnWarnings();
 
@@ -2088,7 +2200,7 @@ function gameLoop() {
     player.update();
     player.draw();
 
-    if (boss) { boss.update(); boss.draw(); }
+    bosses.forEach(b => { b.update(); b.draw(); });
 
     asteroids.forEach(a => { a.update(); a.draw(); });
     asteroids = asteroids.filter(a => !a.dead);
@@ -2123,7 +2235,9 @@ function startMission() {
     buffCount = 0;
     prevBuffThreshold = 0;
     nextBuffThreshold = 2500;
-    boss = null;
+    nextInfiniteBossScore = 20000;
+    infiniteBossCount = 2;
+    bosses = [];
     bullets = [];
     enemyBullets = [];
     enemies = [];
@@ -2161,7 +2275,7 @@ function triggerGameOver() {
     saveProgress();
 
     document.getElementById('go-sector').textContent = currentSector.name;
-    document.getElementById('final-stage').textContent = `${stage} / ${MAX_STAGES}`;
+    document.getElementById('final-stage').textContent = isInfiniteMode ? `♾️ ONDA ${stage}` : `${stage} / ${MAX_STAGES}`;
     document.getElementById('final-score').textContent = score.toLocaleString('pt-BR');
     document.getElementById('high-score').textContent = savedData.highScore.toLocaleString('pt-BR');
     hideAllOverlays();
@@ -2170,7 +2284,7 @@ function triggerGameOver() {
 
 function returnToMainMenu() {
     gameState = 'MENU';
-    boss = null;
+    bosses = [];
     hideAllOverlays();
     document.getElementById('hud').classList.add('hidden');
     updateMenuUI();
@@ -2234,7 +2348,13 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        difficultyMult = parseFloat(btn.dataset.diff);
+        if (btn.dataset.diff === 'infinite') {
+            isInfiniteMode = true;
+            difficultyMult = 1.15;
+        } else {
+            isInfiniteMode = false;
+            difficultyMult = parseFloat(btn.dataset.diff);
+        }
     });
 });
 
