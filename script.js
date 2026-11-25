@@ -482,31 +482,31 @@ class Player {
                 skin.primary,
                 14
             ));
-        }
-
-        if (this.cooldown > 0) this.cooldown--;
-        const firing = mouse.down || keys['Space'] || autoFire || touchAim.active;
-        if (firing && this.cooldown <= 0) {
-            this.shoot();
-            this.cooldown = this.fireDelay;
-        }
-
-        if (this.orbitals > 0) {
-            this.orbitalAngle += 0.065;
-            const dist = 50;
-            for (let i = 0; i < this.orbitals; i++) {
-                const a = this.orbitalAngle + (i * Math.PI * 2) / this.orbitals;
-                const ox = this.x + Math.cos(a) * dist;
-                const oy = this.y + Math.sin(a) * dist;
-
-                for (let e of enemies) {
-                    if (!e.dead && Math.hypot(ox - e.x, oy - e.y) < e.radius + 9) {
-                        e.takeDamage(this.damage * 0.35, ox, oy);
+                // Vs Asteroides
+                if (!b.dead) {
+                    for (let ast of asteroids) {
+                        if (!ast.dead && Math.hypot(b.x - ast.x, b.y - ast.y) < ast.radius + b.radius) {
+                            b.dead = true;
+                            ast.hp -= b.damage;
+                            createExplosion(b.x, b.y, '#00ff88', 5);
+                            if (ast.hp <= 0) {
+                                ast.dead = true;
+                                createExplosion(ast.x, ast.y, '#00ff88', 18);
+                                addScore(90);
+                            }
+                            break;
+                        }
                     }
                 }
-                for (let b of bosses) {
-                    if (!b.dead && Math.hypot(ox - b.x, oy - b.y) < b.radius + 9) {
-                        b.takeDamage(this.damage * 0.25, ox, oy);
+
+                // Vs Chefões
+                if (!b.dead && bosses.length > 0) {
+                    for (let bossObj of bosses) {
+                        if (!bossObj.dead && Math.hypot(b.x - bossObj.x, b.y - bossObj.y) < bossObj.radius + b.radius) {
+                            b.dead = true;
+                            bossObj.takeDamage(b.damage, b.x, b.y);
+                            break;
+                        }
                     }
                 }
             }
