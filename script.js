@@ -1,6 +1,6 @@
 /**
  * NEON DEFENDER: SETOR OMEGA
- * Roguelite Espacial 360° | 5 Fases Randomizadas | Inimigos Exclusivos | Oficina Evolutiva
+ * Roguelite Espacial 360° | 5 Fases Randomizadas | Inimigos & Bosses Exclusivos | Oficina Evolutiva
  */
 
 const canvas = document.getElementById('gameCanvas');
@@ -445,7 +445,6 @@ class Player {
         this.x += vx * this.speed;
         this.y += vy * this.speed;
 
-        // Atração gravitacional no setor Vazio Gravitacional
         for (let gw of gravityWells) {
             const dx = gw.x - this.x;
             const dy = gw.y - this.y;
@@ -460,7 +459,6 @@ class Player {
         this.x = Math.max(this.radius + 8, Math.min(canvas.width - this.radius - 8, this.x));
         this.y = Math.max(this.radius + 8, Math.min(canvas.height - this.radius - 8, this.y));
 
-        // Rotação 360°
         if (touchAim.active && (Math.abs(touchAim.dx) > 0.1 || Math.abs(touchAim.dy) > 0.1)) {
             this.angle = Math.atan2(touchAim.dy, touchAim.dx);
         } else if (mouse.active) {
@@ -469,7 +467,6 @@ class Player {
             this.angle = Math.atan2(vy, vx);
         }
 
-        // Partículas de propulsão com a cor da skin
         const skin = getSelectedSkin();
         if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
             const ex = this.x - Math.cos(this.angle) * 17;
@@ -484,7 +481,6 @@ class Player {
             ));
         }
 
-        // Disparo
         if (this.cooldown > 0) this.cooldown--;
         const firing = mouse.down || keys['Space'] || autoFire || touchAim.active;
         if (firing && this.cooldown <= 0) {
@@ -492,7 +488,6 @@ class Player {
             this.cooldown = this.fireDelay;
         }
 
-        // Drones Orbitais
         if (this.orbitals > 0) {
             this.orbitalAngle += 0.065;
             const dist = 50;
@@ -570,7 +565,6 @@ class Player {
     draw() {
         const skin = getSelectedSkin();
 
-        // Mira laser sutil 360°
         ctx.save();
         ctx.beginPath();
         ctx.setLineDash([5, 7]);
@@ -581,7 +575,6 @@ class Player {
         ctx.stroke();
         ctx.restore();
 
-        // Drones Orbitais
         if (this.orbitals > 0) {
             for (let i = 0; i < this.orbitals; i++) {
                 const a = this.orbitalAngle + (i * Math.PI * 2) / this.orbitals;
@@ -598,7 +591,6 @@ class Player {
             }
         }
 
-        // Escudo visual
         if (this.shield > 0) {
             ctx.save();
             ctx.beginPath();
@@ -698,7 +690,6 @@ class Enemy {
         this.aimCharge = 0;
         this.frontShield = 0;
 
-        // Escalonamento progressivo real por fase e dificuldade
         const hpMult = (1 + (stage - 1) * 0.34) * difficultyMult;
         const spdMult = 1 + (stage - 1) * 0.09 * difficultyMult;
         this.fireRateMult = Math.max(0.58, 1 - (stage - 1) * 0.09);
@@ -934,16 +925,16 @@ class Enemy {
     }
 }
 
-// ================= 4 CHEFÕES ÚNICOS E DESAFIADORES =================
+// ================= 4 CHEFÕES ÚNICOS COM SILHUETAS & ATAQUES EXCLUSIVOS =================
 class Boss {
     constructor(bossType, stageNum) {
-        this.bossType = bossType;
+        this.bossType = bossType; // 'omega', 'hydra', 'colossus', 'sovereign'
         this.x = canvas.width / 2;
-        this.y = -90;
+        this.y = -95;
         this.targetY = canvas.height * 0.24;
-        this.radius = bossType === 'sovereign' ? 62 : 52;
+        this.radius = bossType === 'sovereign' ? 68 : 54;
 
-        const baseHp = bossType === 'sovereign' ? 3600 : (1400 + (stageNum - 1) * 750);
+        const baseHp = bossType === 'sovereign' ? 4200 : (1500 + (stageNum - 1) * 780);
         this.maxHp = Math.round(baseHp * difficultyMult);
         this.hp = this.maxHp;
 
@@ -955,20 +946,23 @@ class Boss {
         this.laserActive = false;
         this.laserTelegraph = false;
         this.shockwaves = [];
+        this.teleportFlash = 0;
         this.dead = false;
         this.entering = true;
 
         const names = {
-            omega: 'GUARDIÃO ÔMEGA — ARTILHARIA ESPIRAL',
-            hydra: 'HIDRA PRISMA — FEIXES DE VARREDURA',
-            colossus: 'COLOSSO BÉLICO — MÍSSEIS & ONDAS DE CHOQUE',
-            sovereign: 'NÚCLEO SOBERANO — AMEAÇA FINAL DO SETOR'
+            omega: 'GUARDIÃO ÔMEGA — FORTALEZA ESPIRAL',
+            hydra: 'HIDRA PRISMA — TRÍADE DE FEIXES LASER',
+            colossus: 'COLOSSO BÉLICO — ENCOURAÇADO DE MÍSSEIS',
+            sovereign: 'IMPERADOR DO VAZIO ÔMEGA — CHEFE SUPREMO'
         };
         this.displayName = names[bossType];
     }
 
     update() {
         this.angle += 0.016;
+        if (this.teleportFlash > 0) this.teleportFlash--;
+
         if (this.entering) {
             this.y += (this.targetY - this.y) * 0.04;
             if (Math.abs(this.y - this.targetY) < 2) this.entering = false;
@@ -985,6 +979,7 @@ class Boss {
 
         const projMult = currentSector.projMult;
 
+        // 1. GUARDIÃO ÔMEGA: Espirais e Rajadas Sniper
         if (this.bossType === 'omega') {
             if (this.timer % 10 === 0) {
                 this.spiralAngle += 0.32;
@@ -1013,6 +1008,7 @@ class Boss {
             }
         }
 
+        // 2. HIDRA PRISMA: Feixes Laser Giratórios e Invocação de Snipers
         if (this.bossType === 'hydra') {
             const cycle = this.timer % 240;
             if (cycle === 1) {
@@ -1025,56 +1021,60 @@ class Boss {
                 playSound('laser');
             } else if (cycle > 65 && cycle < 185) {
                 this.laserAngle += 0.011;
-                this.checkLaserHit(2);
+                this.checkLaserHit(3);
             } else {
                 this.laserActive = false;
                 this.laserTelegraph = false;
             }
 
-            if (this.timer % 150 === 0 && enemies.length < 5) {
-                enemies.push(new Enemy(this.x - 55, this.y, 'shooter'));
-                enemies.push(new Enemy(this.x + 55, this.y, 'interceptor'));
+            if (this.timer % 155 === 0 && enemies.length < 5) {
+                enemies.push(new Enemy(this.x - 60, this.y, 'shooter'));
+                enemies.push(new Enemy(this.x + 60, this.y, 'interceptor'));
             }
         }
 
+        // 3. COLOSSO BÉLICO: Mísseis Teleguiados Duplos e Ondas de Choque
         if (this.bossType === 'colossus') {
-            if (this.timer % 110 === 0) {
+            if (this.timer % 105 === 0) {
                 for (let side of [-1, 1]) {
                     const a = Math.atan2(player.y - this.y, player.x - this.x) + side * 0.7;
                     enemyBullets.push(new Bullet(
-                        this.x + side * 40, this.y,
-                        Math.cos(a) * 3.6 * projMult,
-                        Math.sin(a) * 3.6 * projMult,
+                        this.x + side * 44, this.y,
+                        Math.cos(a) * 3.7 * projMult,
+                        Math.sin(a) * 3.7 * projMult,
                         18, 7, '#ffe600', false, true
                     ));
                 }
             }
-            if (this.timer % 175 === 0) {
-                this.shockwaves.push({ r: this.radius, maxR: 460, hit: false });
+            if (this.timer % 170 === 0) {
+                this.shockwaves.push({ r: this.radius, maxR: 470, hit: false });
                 playSound('bossAlert');
             }
         }
 
+        // 4. IMPERADOR DO VAZIO ÔMEGA (CHEFE FINAL SUPREMO - 3 FASES DE COMBATE)
         if (this.bossType === 'sovereign') {
             const hpRatio = this.hp / this.maxHp;
 
+            // Fase 1 (100% - 0%): Cortina Estelar de 5 Pontas
             if (this.timer % 11 === 0) {
-                this.spiralAngle += 0.28;
-                const arms = hpRatio < 0.5 ? 5 : 3;
+                this.spiralAngle += 0.27;
+                const arms = hpRatio < 0.4 ? 6 : 4;
                 for (let i = 0; i < arms; i++) {
                     const a = this.spiralAngle + (i * Math.PI * 2) / arms;
                     enemyBullets.push(new Bullet(
                         this.x + Math.cos(a) * this.radius,
                         this.y + Math.sin(a) * this.radius,
-                        Math.cos(a) * 4.1 * projMult,
-                        Math.sin(a) * 4.1 * projMult,
-                        14, 5, '#ff00ea', false
+                        Math.cos(a) * 4.2 * projMult,
+                        Math.sin(a) * 4.2 * projMult,
+                        14, 5, '#c84bff', false
                     ));
                 }
             }
 
+            // Fase 2 (< 75% HP): Tríade de Lasers Varredores + Guarda Real
             if (hpRatio < 0.75) {
-                const cycle = this.timer % 260;
+                const cycle = this.timer % 250;
                 if (cycle === 1) {
                     this.laserAngle = Math.atan2(player.y - this.y, player.x - this.x) - 0.6;
                     this.laserTelegraph = true;
@@ -1083,24 +1083,38 @@ class Boss {
                     this.laserTelegraph = false;
                     this.laserActive = true;
                     playSound('laser');
-                } else if (cycle > 60 && cycle < 170) {
+                } else if (cycle > 60 && cycle < 165) {
                     this.laserAngle += 0.013;
-                    this.checkLaserHit(2);
+                    this.checkLaserHit(3);
                 } else {
                     this.laserActive = false;
                     this.laserTelegraph = false;
                 }
             }
 
-            if (hpRatio < 0.45 && this.timer % 160 === 0) {
-                this.shockwaves.push({ r: this.radius, maxR: 480, hit: false });
-                const aim = Math.atan2(player.y - this.y, player.x - this.x);
-                enemyBullets.push(new Bullet(this.x, this.y, Math.cos(aim) * 3.8, Math.sin(aim) * 3.8, 18, 7, '#ffe600', false, true));
+            // Fase 3 (< 50% HP): Teletransporte Tático, Ondas de Choque e Mísseis Teleguiados
+            if (hpRatio < 0.50 && this.timer % 180 === 0) {
+                createExplosion(this.x, this.y, '#c84bff', 30);
+                this.x = canvas.width * (0.25 + Math.random() * 0.5);
+                this.y = canvas.height * (0.2 + Math.random() * 0.25);
+                this.teleportFlash = 25;
+                createExplosion(this.x, this.y, '#00f3ff', 30);
+                this.shockwaves.push({ r: this.radius, maxR: 500, hit: false });
+
+                for (let side of [-1, 1]) {
+                    const aim = Math.atan2(player.y - this.y, player.x - this.x) + side * 0.5;
+                    enemyBullets.push(new Bullet(
+                        this.x + side * 45, this.y,
+                        Math.cos(aim) * 3.9, Math.sin(aim) * 3.9,
+                        18, 7, '#ffe600', false, true
+                    ));
+                }
             }
         }
 
+        // Atualiza ondas de choque expansivas
         for (let sw of this.shockwaves) {
-            sw.r += 3.6;
+            sw.r += 3.7;
             const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
             if (!sw.hit && Math.abs(distToPlayer - sw.r) < player.radius + 6) {
                 sw.hit = true;
@@ -1112,13 +1126,13 @@ class Boss {
 
     checkLaserHit(beams) {
         for (let b = 0; b < beams; b++) {
-            const a = this.laserAngle + (b * Math.PI);
+            const a = this.laserAngle + (b * Math.PI * 2) / beams;
             const lx = Math.cos(a);
             const ly = Math.sin(a);
             const px = player.x - this.x;
             const py = player.y - this.y;
             const proj = px * lx + py * ly;
-            if (proj > 0 && proj < 900) {
+            if (proj > 0 && proj < 950) {
                 const perpDist = Math.abs(px * ly - py * lx);
                 if (perpDist < player.radius + 6) {
                     player.takeDamage(16);
@@ -1140,6 +1154,7 @@ class Boss {
     }
 
     draw() {
+        // Ondas de Choque
         for (let sw of this.shockwaves) {
             ctx.save();
             ctx.beginPath();
@@ -1150,20 +1165,22 @@ class Boss {
             ctx.restore();
         }
 
+        // Lasers (3 feixes para Hidra/Soberano)
         if (this.laserTelegraph || this.laserActive) {
-            for (let b = 0; b < 2; b++) {
-                const a = this.laserAngle + b * Math.PI;
+            const beams = 3;
+            for (let b = 0; b < beams; b++) {
+                const a = this.laserAngle + (b * Math.PI * 2) / beams;
                 ctx.save();
                 ctx.beginPath();
                 ctx.moveTo(this.x, this.y);
                 ctx.lineTo(this.x + Math.cos(a) * 1000, this.y + Math.sin(a) * 1000);
                 if (this.laserTelegraph) {
                     ctx.setLineDash([8, 8]);
-                    ctx.strokeStyle = 'rgba(255, 42, 85, 0.5)';
+                    ctx.strokeStyle = 'rgba(0, 243, 255, 0.55)';
                     ctx.lineWidth = 2;
                 } else {
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = '#ff00ea';
+                    ctx.shadowBlur = 22;
+                    ctx.shadowColor = this.bossType === 'sovereign' ? '#c84bff' : '#00f3ff';
                     ctx.strokeStyle = '#ffffff';
                     ctx.lineWidth = 10;
                 }
@@ -1174,38 +1191,181 @@ class Boss {
 
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = '#ff2a55';
 
-        ctx.save();
-        ctx.rotate(this.angle);
-        const sides = this.bossType === 'sovereign' ? 10 : (this.bossType === 'colossus' ? 6 : 8);
-        ctx.beginPath();
-        for (let i = 0; i < sides; i++) {
-            const a = (i * Math.PI * 2) / sides;
-            const px = Math.cos(a) * this.radius;
-            const py = Math.sin(a) * this.radius;
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        // APARÊNCIA 1: GUARDIÃO ÔMEGA (Fortaleza Octogonal Carmesim com Anéis de Artilharia)
+        if (this.bossType === 'omega') {
+            ctx.shadowBlur = 24;
+            ctx.shadowColor = '#ff2a55';
+
+            ctx.save();
+            ctx.rotate(this.angle);
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const a = (i * Math.PI) / 4;
+                const px = Math.cos(a) * this.radius;
+                const py = Math.sin(a) * this.radius;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#1f0612';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#ff2a55';
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.rotate(-this.angle * 1.8);
+            ctx.strokeStyle = '#ff00ea';
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(-28, -28, 56, 56);
+            ctx.restore();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff2a55';
+            ctx.fill();
         }
-        ctx.closePath();
-        ctx.fillStyle = '#1b0614';
-        ctx.fill();
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = '#ff2a55';
-        ctx.stroke();
-        ctx.restore();
 
-        ctx.save();
-        ctx.rotate(-this.angle * 1.7);
-        ctx.strokeStyle = '#ffe600';
-        ctx.lineWidth = 2.5;
-        ctx.strokeRect(-26, -26, 52, 52);
-        ctx.restore();
+        // APARÊNCIA 2: HIDRA PRISMA (Nave Triangular de 3 Cabeças / Emissores Laser)
+        else if (this.bossType === 'hydra') {
+            ctx.shadowBlur = 24;
+            ctx.shadowColor = '#00f3ff';
 
-        ctx.beginPath();
-        ctx.arc(0, 0, 16, 0, Math.PI * 2);
-        ctx.fillStyle = '#ff00ea';
-        ctx.fill();
+            ctx.save();
+            ctx.rotate(this.angle * 0.8);
+            ctx.beginPath();
+            for (let i = 0; i < 3; i++) {
+                const a = (i * Math.PI * 2) / 3;
+                const px = Math.cos(a) * (this.radius + 8);
+                const py = Math.sin(a) * (this.radius + 8);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#061b29';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#00f3ff';
+            ctx.stroke();
+
+            // 3 Cabeças/Núcleos nas pontas do triângulo
+            for (let i = 0; i < 3; i++) {
+                const a = (i * Math.PI * 2) / 3;
+                ctx.beginPath();
+                ctx.arc(Math.cos(a) * 44, Math.sin(a) * 44, 11, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff00ea';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fillStyle = '#00f3ff';
+            ctx.fill();
+        }
+
+        // APARÊNCIA 3: COLOSSO BÉLICO (Encouraçado Hexagonal Dourado com Silos de Mísseis)
+        else if (this.bossType === 'colossus') {
+            ctx.shadowBlur = 24;
+            ctx.shadowColor = '#ffe600';
+
+            // Silos laterais de mísseis
+            ctx.fillStyle = '#291a04';
+            ctx.strokeStyle = '#ff7b00';
+            ctx.lineWidth = 3;
+            ctx.fillRect(-66, -22, 22, 44);
+            ctx.strokeRect(-66, -22, 22, 44);
+            ctx.fillRect(44, -22, 22, 44);
+            ctx.strokeRect(44, -22, 22, 44);
+
+            // Chassi Hexagonal Blindado
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = (i * Math.PI) / 3;
+                const px = Math.cos(a) * this.radius;
+                const py = Math.sin(a) * this.radius;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#1e1404';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ffe600';
+            ctx.stroke();
+
+            // Reator central pulsante
+            const pulse = 16 + Math.sin(this.timer * 0.12) * 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff7b00';
+            ctx.fill();
+        }
+
+        // APARÊNCIA 4: IMPERADOR DO VAZIO ÔMEGA (Estrela Imperial de 12 Pontas + Escudo Orbital)
+        else if (this.bossType === 'sovereign') {
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#c84bff';
+
+            // Anel externo de escudo segmentado
+            ctx.save();
+            ctx.rotate(-this.angle * 1.4);
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([22, 12]);
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 14, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+
+            // Estrela Imperial de 12 Pontas
+            ctx.save();
+            ctx.rotate(this.angle);
+            ctx.beginPath();
+            for (let i = 0; i < 24; i++) {
+                const a = (i * Math.PI) / 12;
+                const r = i % 2 === 0 ? this.radius + 6 : this.radius * 0.68;
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#18052b';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#c84bff';
+            ctx.stroke();
+            ctx.restore();
+
+            // Coroa interna dourada
+            ctx.save();
+            ctx.rotate(-this.angle * 2);
+            ctx.strokeStyle = '#ffe600';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = (i * Math.PI) / 3;
+                const px = Math.cos(a) * 30;
+                const py = Math.sin(a) * 30;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+
+            // Olho do Vazio (Núcleo Supremo)
+            const coreR = 16 + Math.sin(this.timer * 0.15) * 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff00ea';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, 0, coreR * 0.45, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+        }
 
         ctx.restore();
     }
@@ -1420,8 +1580,9 @@ function triggerBossEncounter() {
 
 function onBossDefeated() {
     playSound('explosion');
-    screenShake = 24;
-    createExplosion(boss.x, boss.y, '#ff2a55', 55);
+    screenShake = 26;
+    createExplosion(boss.x, boss.y, '#ff2a55', 60);
+    createExplosion(boss.x, boss.y, '#c84bff', 50);
     createExplosion(boss.x, boss.y, '#ffe600', 45);
 
     const stageBonus = 2000 * stage;
@@ -1778,7 +1939,6 @@ function drawArenaBackground() {
     ctx.fillStyle = currentSector.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Nebulosa ambiental
     const neb = ctx.createRadialGradient(
         canvas.width * 0.5, canvas.height * 0.5, 30,
         canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.65
@@ -1789,7 +1949,6 @@ function drawArenaBackground() {
     ctx.fillStyle = neb;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Estrelas em parallax
     const vx = player ? Math.cos(player.angle) * 0.25 : 0;
     const vy = player ? Math.sin(player.angle) * 0.25 : 0;
     for (let s of stars) {
@@ -1806,7 +1965,6 @@ function drawArenaBackground() {
     }
     ctx.globalAlpha = 1;
 
-    // Grade Cibernética
     ctx.strokeStyle = currentSector.grid;
     ctx.lineWidth = 1;
     const step = 46;
@@ -1815,7 +1973,6 @@ function drawArenaBackground() {
     for (let y = 0; y < canvas.height; y += step) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
 
-    // Singularidades gravitacionais
     for (let gw of gravityWells) {
         const grad = ctx.createRadialGradient(gw.x, gw.y, 8, gw.x, gw.y, gw.radius);
         grad.addColorStop(0, 'rgba(255, 230, 0, 0.35)');
