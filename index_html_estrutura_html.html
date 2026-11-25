@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEON DEFENDER: SETOR OMEGA</title>
+    <!-- Conecta o arquivo de estilos externo -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <!-- ================= HUD DE COMBATE ================= -->
+        <div id="hud" class="hidden">
+            <div class="hud-group">
+                <span class="hud-label">CRÉDITOS / PONTOS</span>
+                <span id="score-display" class="hud-value">0</span>
+                <span class="hud-label" style="margin-top:3px;">PRÓXIMO BUFF (<span id="next-upg-txt">2.500</span>)</span>
+                <div class="progress-container">
+                    <div id="upgrade-bar" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="hud-group" style="align-items: center;">
+                <span id="stage-label" class="hud-value" style="color: #ff00ea;">FASE 1 / 5</span>
+                <span id="sector-name-badge" class="sector-badge">NEBULOSA AZUL</span>
+                <div class="progress-container" style="margin-top:3px;">
+                    <div id="stage-bar" class="progress-fill"></div>
+                </div>
+                <span class="hud-label" id="boss-goal-txt">CHEFÃO AOS 10.000 PTS DA FASE</span>
+                <div class="hud-controls">
+                    <button id="autofire-btn" class="mini-btn">🔫 AUTO: OFF [F]</button>
+                    <button id="pause-btn" class="mini-btn">⏸ PAUSAR [ESC]</button>
+                    <button id="mute-btn" class="mini-btn">🔊 SOM</button>
+                </div>
+            </div>
+
+            <div class="hud-group" style="align-items: flex-end;">
+                <span class="hud-label">CASCO & ESCUDO</span>
+                <div class="player-bars">
+                    <div class="hp-bar-bg"><div id="hp-fill"></div></div>
+                    <div id="shield-fill"></div>
+                </div>
+                <span id="hp-text" style="font-size: 0.72rem; color: #cbd5e1; margin-top: 2px;">100 / 100</span>
+            </div>
+        </div>
+
+        <!-- Barra de Vida do Chefão -->
+        <div id="boss-hud" class="hidden">
+            <span id="boss-name">GUARDIÃO ÔMEGA</span>
+            <div class="boss-hp-bg"><div id="boss-hp-fill"></div></div>
+        </div>
+
+        <!-- Banner Dramático de Alerta -->
+        <div id="alert-banner" class="hidden">⚠️ ALERTA DE AMEAÇA CLASSE ÔMEGA! ⚠️</div>
+
+        <!-- ================= 1. MENU PRINCIPAL ================= -->
+        <div id="start-screen" class="overlay-screen">
+            <h1>NEON DEFENDER: SETOR OMEGA</h1>
+            <p class="subtitle">Sobreviva a 5 setores espaciais randomizados, aprimore sua nave na Zona Segura entre fases e derrote os Chefões Galácticos.</p>
+
+            <div class="menu-grid">
+                <div class="preview-box">
+                    <span class="hud-label">HANGAR DE INSPEÇÃO</span>
+                    <canvas id="shipPreviewCanvas" width="160" height="160"></canvas>
+                    <div>
+                        <div id="preview-skin-name" style="font-size: 0.85rem; font-weight: 900; color: #00f3ff;">VALKYRIE CIANO</div>
+                        <div style="font-size: 0.68rem; color: #ffe600; margin-top: 4px;">
+                            Banco: <strong id="bank-points-display">0</strong> pts | Recorde: <strong id="menu-highscore">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skins-panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="hud-label" style="color:#00f3ff;">CHASSIS & SKINS DA NAVE</span>
+                        <span class="hud-label">DESBLOQUEIE COM PONTOS</span>
+                    </div>
+                    <div id="menu-skins-list" class="skins-list"></div>
+                </div>
+            </div>
+
+            <div class="difficulty-row">
+                <button class="diff-btn" data-diff="0.8">CADETE</button>
+                <button class="diff-btn active" data-diff="1.0">VETERANO</button>
+                <button class="diff-btn" data-diff="1.35">PESADELO</button>
+            </div>
+
+            <div class="controls-guide">
+                <div class="key-badge"><span>WASD / SETAS</span> : Mover 360°</div>
+                <div class="key-badge"><span>MOUSE</span> : Mirar</div>
+                <div class="key-badge"><span>CLIQUE / ESPAÇO / F</span> : Atirar</div>
+                <div class="key-badge"><span>ESC / P</span> : Pausar</div>
+            </div>
+
+            <button id="start-btn" class="neon-btn">INICIAR MISSÃO</button>
+        </div>
+
+        <!-- ================= 2. CARTAS DE BUFF EM COMBATE ================= -->
+        <div id="upgrade-screen" class="overlay-screen hidden">
+            <h1 style="font-size: 1.9rem; background: linear-gradient(90deg, #ffe600, #00ff88); -webkit-background-clip: text;">MÓDULO TÁTICO DISPONÍVEL!</h1>
+            <p class="subtitle">Escolha 1 melhoria de combate para instalar na sua nave (Teclas 1, 2 ou 3):</p>
+            <div id="cards-container" class="cards-container"></div>
+        </div>
+
+        <!-- ================= 3. ZONA SEGURA / HANGAR ENTRE FASES ================= -->
+        <div id="safezone-screen" class="overlay-screen hidden">
+            <h1 style="font-size: 1.7rem; background: linear-gradient(90deg, #00ff88, #00f3ff); -webkit-background-clip: text;">ZONA SEGURA — OFICINA ORBITAL</h1>
+            <p class="subtitle">Chefão neutralizado! Créditos disponíveis: <strong id="hangar-points" style="color:#ffe600;">0</strong> pts. Instale melhorias visuais e estruturais na sua nave.</p>
+
+            <div class="hangar-layout">
+                <!-- Coluna Esquerda: Manutenção e Melhorias Permanentes -->
+                <div class="hangar-box">
+                    <h3>🔧 BANCADA DE MELHORIAS PERMANENTES</h3>
+                    <div id="hangar-upgrades-list" style="display:flex; flex-direction:column; gap:7px;"></div>
+                </div>
+
+                <!-- Coluna Central: Oficina Visual com Preview Evolutivo -->
+                <div class="hangar-box workshop-bay">
+                    <h3>🛠️ DOCA DE MANUTENÇÃO & TELEMETRIA</h3>
+                    <canvas id="workshopCanvas" width="240" height="195"></canvas>
+                    <div id="workshop-modules-tags" class="modules-tags"></div>
+                    <div class="next-sector-card">
+                        <span class="hud-label" style="color:#ff00ea;">⚠️ RADAR DO PRÓXIMO SETOR (FASE <span id="next-stage-num">2</span>/5)</span>
+                        <div id="next-sector-title" style="font-size: 0.85rem; font-weight: 900; color: #ffe600; margin: 3px 0;">TEMPESTADE IÔNICA</div>
+                        <div id="next-sector-desc" style="font-size: 0.66rem; color: #e2e8f0;">Descargas elétricas aumentam a velocidade de todos os projéteis em +20%.</div>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Skins -->
+                <div class="hangar-box">
+                    <h3>🎨 SKINS DE CHASSIS</h3>
+                    <div id="hangar-skins-list" class="skins-list" style="grid-template-columns: 1fr;"></div>
+                </div>
+            </div>
+
+            <button id="launch-next-btn" class="neon-btn">DECOLAR PARA A FASE <span id="launch-stage-num">2</span> ➔</button>
+        </div>
+
+        <!-- ================= 4. MENU DE PAUSA ================= -->
+        <div id="pause-screen" class="overlay-screen hidden">
+            <h1>SISTEMAS EM PAUSA</h1>
+            <p class="subtitle">Combate suspenso. Escolha uma opção para prosseguir.</p>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">
+                <button id="resume-btn" class="neon-btn">CONTINUAR MISSÃO</button>
+                <button id="pause-mute-btn" class="neon-btn" style="background: linear-gradient(135deg, #ffe600, #ff9900);">ALTERNAR ÁUDIO</button>
+                <button id="abandon-btn" class="neon-btn secondary">ABANDONAR AO MENU</button>
+            </div>
+        </div>
+
+        <!-- ================= 5. VITÓRIA FINAL (APÓS FASE 5) ================= -->
+        <div id="victory-screen" class="overlay-screen hidden">
+            <h1 style="background: linear-gradient(90deg, #ffe600, #00ff88, #00f3ff); -webkit-background-clip: text;">SETOR OMEGA LIBERTADO!</h1>
+            <p class="subtitle">Vitória Suprema! Você sobreviveu às 5 fases e destruiu o Núcleo Soberano.</p>
+
+            <div class="final-stats">
+                <p>Pontuação Final da Missão: <strong id="vic-score" style="color: #00f3ff;">0</strong></p>
+                <p>Bônus de Conclusão (5 Fases): <strong style="color: #00ff88;">+5.000 pts</strong></p>
+                <p>Créditos Totais no Banco: <strong id="vic-bank" style="color: #ffe600;">0</strong></p>
+            </div>
+
+            <button id="victory-menu-btn" class="neon-btn">RETORNAR AO MENU PRINCIPAL</button>
+        </div>
+
+        <!-- ================= 6. GAME OVER ================= -->
+        <div id="gameover-screen" class="overlay-screen hidden">
+            <h1 style="background: linear-gradient(90deg, #ff2a55, #ff00ea); -webkit-background-clip: text;">NAVE DESTRUÍDA</h1>
+            <p class="subtitle">Suas defesas falharam no Setor <span id="go-sector">Omega</span>.</p>
+
+            <div class="final-stats">
+                <p>Fase Alcançada: <strong id="final-stage" style="color: #ff00ea;">1 / 5</strong></p>
+                <p>Pontuação da Partida: <strong id="final-score" style="color: #00f3ff;">0</strong></p>
+                <p>Recorde Histórico: <strong id="high-score" style="color: #ffe600;">0</strong></p>
+            </div>
+
+            <div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">
+                <button id="restart-btn" class="neon-btn">TENTAR NOVAMENTE</button>
+                <button id="go-menu-btn" class="neon-btn secondary">MENU PRINCIPAL</button>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Controles Touch Duplos (Mobile) -->
+    <div id="mobile-joysticks">
+        <div class="joystick-zone" id="joy-move">
+            <div class="joystick-knob" id="knob-move"></div>
+        </div>
+        <div class="joystick-zone" id="joy-aim" style="border-color: rgba(255, 0, 234, 0.5);">
+            <div class="joystick-knob" id="knob-aim" style="background: rgba(255, 0, 234, 0.5); border-color: #ff00ea;"></div>
+        </div>
+    </div>
+
+    <!-- Conecta o arquivo JavaScript externo -->
+    <script src="script.js"></script>
+</body>
+</html>
