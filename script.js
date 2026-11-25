@@ -1,6 +1,6 @@
 /**
  * NEON DEFENDER: SETOR OMEGA
- * Roguelite Espacial 360° | 5 Fases Randomizadas | Inimigos & Bosses Exclusivos | Oficina Evolutiva
+ * Roguelite Espacial 360° | 5 Fases Randomizadas | Inimigos & Bosses Exclusivos | Modo Infinito
  */
 
 const canvas = document.getElementById('gameCanvas');
@@ -161,7 +161,7 @@ let workshopWeldSparks = [];
 
 // Entidades
 let player;
-let bosses = []; // Suporta 1 ou múltiplos chefões simultâneos
+let bosses = [];
 let bullets = [];
 let enemyBullets = [];
 let enemies = [];
@@ -253,7 +253,7 @@ function renderShipGeometry(context, skin, angle, scale = 1, hangarLevels = null
 
     const lvls = hangarLevels || { hull: 0, cannon: 0, reactor: 0, shieldGen: 0 };
 
-    // 1. Placas de Blindagem Extra (Upgrade de Casco)
+    // 1. Placas de Blindagem Extra
     if (lvls.hull > 0) {
         context.strokeStyle = skin.secondary;
         context.fillStyle = skin.hull;
@@ -269,7 +269,7 @@ function renderShipGeometry(context, skin, angle, scale = 1, hangarLevels = null
         context.stroke();
     }
 
-    // 2. Canhões Laterais Acoplados (Upgrade de Canhões)
+    // 2. Canhões Laterais Acoplados
     if (lvls.cannon > 0) {
         context.fillStyle = skin.primary;
         context.shadowBlur = 10;
@@ -284,7 +284,7 @@ function renderShipGeometry(context, skin, angle, scale = 1, hangarLevels = null
         }
     }
 
-    // 3. Reatores Traseiros Duplos (Upgrade de Reator)
+    // 3. Reatores Traseiros Duplos
     if (lvls.reactor > 0) {
         context.fillStyle = skin.secondary;
         context.beginPath();
@@ -347,7 +347,7 @@ function renderShipGeometry(context, skin, angle, scale = 1, hangarLevels = null
     context.fillStyle = skin.secondary;
     context.fill();
 
-    // 5. Nodos de Escudo Orbital (Upgrade de Gerador de Escudo)
+    // 5. Nodos de Escudo Orbital
     if (lvls.shieldGen > 0) {
         context.strokeStyle = 'rgba(0, 243, 255, 0.55)';
         context.lineWidth = 1.4;
@@ -482,31 +482,31 @@ class Player {
                 skin.primary,
                 14
             ));
-                // Vs Asteroides
-                if (!b.dead) {
-                    for (let ast of asteroids) {
-                        if (!ast.dead && Math.hypot(b.x - ast.x, b.y - ast.y) < ast.radius + b.radius) {
-                            b.dead = true;
-                            ast.hp -= b.damage;
-                            createExplosion(b.x, b.y, '#00ff88', 5);
-                            if (ast.hp <= 0) {
-                                ast.dead = true;
-                                createExplosion(ast.x, ast.y, '#00ff88', 18);
-                                addScore(90);
-                            }
-                            break;
-                        }
+        }
+
+        if (this.cooldown > 0) this.cooldown--;
+        const firing = mouse.down || keys['Space'] || autoFire || touchAim.active;
+        if (firing && this.cooldown <= 0) {
+            this.shoot();
+            this.cooldown = this.fireDelay;
+        }
+
+        if (this.orbitals > 0) {
+            this.orbitalAngle += 0.065;
+            const dist = 50;
+            for (let i = 0; i < this.orbitals; i++) {
+                const a = this.orbitalAngle + (i * Math.PI * 2) / this.orbitals;
+                const ox = this.x + Math.cos(a) * dist;
+                const oy = this.y + Math.sin(a) * dist;
+
+                for (let e of enemies) {
+                    if (!e.dead && Math.hypot(ox - e.x, oy - e.y) < e.radius + 9) {
+                        e.takeDamage(this.damage * 0.35, ox, oy);
                     }
                 }
-
-                // Vs Chefões
-                if (!b.dead && bosses.length > 0) {
-                    for (let bossObj of bosses) {
-                        if (!bossObj.dead && Math.hypot(b.x - bossObj.x, b.y - bossObj.y) < bossObj.radius + b.radius) {
-                            b.dead = true;
-                            bossObj.takeDamage(b.damage, b.x, b.y);
-                            break;
-                        }
+                for (let bossObj of bosses) {
+                    if (!bossObj.dead && Math.hypot(ox - bossObj.x, oy - bossObj.y) < bossObj.radius + 9) {
+                        bossObj.takeDamage(this.damage * 0.25, ox, oy);
                     }
                 }
             }
@@ -935,7 +935,7 @@ class Enemy {
 // ================= 4 CHEFÕES ÚNICOS COM SILHUETAS & ATAQUES EXCLUSIVOS =================
 class Boss {
     constructor(bossType, stageNum, slotIndex = 0, totalSlots = 1) {
-        this.bossType = bossType; // 'omega', 'hydra', 'colossus', 'sovereign'
+        this.bossType = bossType;
         this.slotIndex = slotIndex;
         this.totalSlots = totalSlots;
 
@@ -995,7 +995,6 @@ class Boss {
 
         const projMult = currentSector.projMult;
 
-        // 1. GUARDIÃO ÔMEGA: Espirais e Rajadas Sniper
         if (this.bossType === 'omega') {
             if (this.timer % 10 === 0) {
                 this.spiralAngle += 0.32;
@@ -1024,7 +1023,6 @@ class Boss {
             }
         }
 
-        // 2. HIDRA PRISMA: Feixes Laser Giratórios e Invocação de Snipers
         if (this.bossType === 'hydra') {
             const cycle = this.timer % 240;
             if (cycle === 1) {
@@ -1049,7 +1047,6 @@ class Boss {
             }
         }
 
-        // 3. COLOSSO BÉLICO: Mísseis Teleguiados Duplos e Ondas de Choque
         if (this.bossType === 'colossus') {
             if (this.timer % 105 === 0) {
                 for (let side of [-1, 1]) {
@@ -1068,11 +1065,9 @@ class Boss {
             }
         }
 
-        // 4. IMPERADOR DO VAZIO ÔMEGA (CHEFE FINAL SUPREMO - 3 FASES DE COMBATE)
         if (this.bossType === 'sovereign') {
             const hpRatio = this.hp / this.maxHp;
 
-            // Fase 1 (100% - 0%): Cortina Estelar de 5 Pontas
             if (this.timer % 11 === 0) {
                 this.spiralAngle += 0.27;
                 const arms = hpRatio < 0.4 ? 6 : 4;
@@ -1088,7 +1083,6 @@ class Boss {
                 }
             }
 
-            // Fase 2 (< 75% HP): Tríade de Lasers Varredores + Guarda Real
             if (hpRatio < 0.75) {
                 const cycle = this.timer % 250;
                 if (cycle === 1) {
@@ -1108,7 +1102,6 @@ class Boss {
                 }
             }
 
-            // Fase 3 (< 50% HP): Teletransporte Tático, Ondas de Choque e Mísseis Teleguiados
             if (hpRatio < 0.50 && this.timer % 180 === 0) {
                 createExplosion(this.x, this.y, '#c84bff', 30);
                 this.x = canvas.width * (0.25 + Math.random() * 0.5);
@@ -1128,7 +1121,6 @@ class Boss {
             }
         }
 
-        // Atualiza ondas de choque expansivas
         for (let sw of this.shockwaves) {
             sw.r += 3.7;
             const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
@@ -1179,20 +1171,7 @@ class Boss {
         }
     }
 
-    takeDamage(dmg, hx, hy) {
-        if (this.entering || this.dead) return;
-        this.hp -= dmg;
-        createExplosion(hx || this.x, hy || this.y, '#ffe600', 4);
-        bossHpFill.style.width = `${Math.max(0, (this.hp / this.maxHp) * 100)}%`;
-
-        if (this.hp <= 0) {
-            this.dead = true;
-            onBossDefeated();
-        }
-    }
-
     draw() {
-        // Ondas de Choque
         for (let sw of this.shockwaves) {
             ctx.save();
             ctx.beginPath();
@@ -1203,7 +1182,6 @@ class Boss {
             ctx.restore();
         }
 
-        // Lasers (3 feixes para Hidra/Soberano)
         if (this.laserTelegraph || this.laserActive) {
             const beams = 3;
             for (let b = 0; b < beams; b++) {
@@ -1230,7 +1208,6 @@ class Boss {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // APARÊNCIA 1: GUARDIÃO ÔMEGA (Fortaleza Octogonal Carmesim com Anéis de Artilharia)
         if (this.bossType === 'omega') {
             ctx.shadowBlur = 24;
             ctx.shadowColor = '#ff2a55';
@@ -1263,10 +1240,7 @@ class Boss {
             ctx.arc(0, 0, 15, 0, Math.PI * 2);
             ctx.fillStyle = '#ff2a55';
             ctx.fill();
-        }
-
-        // APARÊNCIA 2: HIDRA PRISMA (Nave Triangular de 3 Cabeças / Emissores Laser)
-        else if (this.bossType === 'hydra') {
+        } else if (this.bossType === 'hydra') {
             ctx.shadowBlur = 24;
             ctx.shadowColor = '#00f3ff';
 
@@ -1286,7 +1260,6 @@ class Boss {
             ctx.strokeStyle = '#00f3ff';
             ctx.stroke();
 
-            // 3 Cabeças/Núcleos nas pontas do triângulo
             for (let i = 0; i < 3; i++) {
                 const a = (i * Math.PI * 2) / 3;
                 ctx.beginPath();
@@ -1303,14 +1276,10 @@ class Boss {
             ctx.arc(0, 0, 14, 0, Math.PI * 2);
             ctx.fillStyle = '#00f3ff';
             ctx.fill();
-        }
-
-        // APARÊNCIA 3: COLOSSO BÉLICO (Encouraçado Hexagonal Dourado com Silos de Mísseis)
-        else if (this.bossType === 'colossus') {
+        } else if (this.bossType === 'colossus') {
             ctx.shadowBlur = 24;
             ctx.shadowColor = '#ffe600';
 
-            // Silos laterais de mísseis
             ctx.fillStyle = '#291a04';
             ctx.strokeStyle = '#ff7b00';
             ctx.lineWidth = 3;
@@ -1319,7 +1288,6 @@ class Boss {
             ctx.fillRect(44, -22, 22, 44);
             ctx.strokeRect(44, -22, 22, 44);
 
-            // Chassi Hexagonal Blindado
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
                 const a = (i * Math.PI) / 3;
@@ -1334,20 +1302,15 @@ class Boss {
             ctx.strokeStyle = '#ffe600';
             ctx.stroke();
 
-            // Reator central pulsante
             const pulse = 16 + Math.sin(this.timer * 0.12) * 4;
             ctx.beginPath();
             ctx.arc(0, 0, pulse, 0, Math.PI * 2);
             ctx.fillStyle = '#ff7b00';
             ctx.fill();
-        }
-
-        // APARÊNCIA 4: IMPERADOR DO VAZIO ÔMEGA (Estrela Imperial de 12 Pontas + Escudo Orbital)
-        else if (this.bossType === 'sovereign') {
+        } else if (this.bossType === 'sovereign') {
             ctx.shadowBlur = 30;
             ctx.shadowColor = '#c84bff';
 
-            // Anel externo de escudo segmentado
             ctx.save();
             ctx.rotate(-this.angle * 1.4);
             ctx.strokeStyle = '#00f3ff';
@@ -1358,7 +1321,6 @@ class Boss {
             ctx.stroke();
             ctx.restore();
 
-            // Estrela Imperial de 12 Pontas
             ctx.save();
             ctx.rotate(this.angle);
             ctx.beginPath();
@@ -1377,7 +1339,6 @@ class Boss {
             ctx.stroke();
             ctx.restore();
 
-            // Coroa interna dourada
             ctx.save();
             ctx.rotate(-this.angle * 2);
             ctx.strokeStyle = '#ffe600';
@@ -1393,7 +1354,6 @@ class Boss {
             ctx.stroke();
             ctx.restore();
 
-            // Olho do Vazio (Núcleo Supremo)
             const coreR = 16 + Math.sin(this.timer * 0.15) * 4;
             ctx.beginPath();
             ctx.arc(0, 0, coreR, 0, Math.PI * 2);
@@ -1594,7 +1554,6 @@ function addScore(pts) {
     stageScore += pts;
 
     if (isInfiniteMode) {
-        // Aumenta a onda/dificuldade a cada 10.000 pontos no modo infinito
         const newWave = Math.floor(score / 10000) + 1;
         if (newWave > stage) {
             stage = newWave;
@@ -1602,7 +1561,6 @@ function addScore(pts) {
             floatingTexts.push(new FloatingText(player.x, player.y - 45, `ONDA ${stage} — AMEAÇA ELEVADA!`, '#ff00ea', 16));
         }
 
-        // Invoca múltiplos chefões aos 20k (2), 40k (3), 60k+ (todos os 4)
         if (bosses.length === 0 && score >= nextInfiniteBossScore) {
             triggerInfiniteBossSquad(infiniteBossCount);
             nextInfiniteBossScore += 20000;
@@ -1660,7 +1618,7 @@ function triggerInfiniteBossSquad(count) {
     enemyBullets = [];
 
     const allTypes = ['omega', 'hydra', 'colossus', 'sovereign'];
-    const shuffled = count >= 4 ? allTypes : allTypes.sort(() => 0.5 - Math.random()).slice(0, count);
+    const shuffled = count >= 4 ? allTypes : [...allTypes].sort(() => 0.5 - Math.random()).slice(0, count);
 
     bosses = shuffled.map((bType, idx) => new Boss(bType, stage, idx, shuffled.length));
     updateBossHudBar();
@@ -1685,7 +1643,6 @@ function onBossDefeated() {
     enemies = [];
 
     if (isInfiniteMode) {
-        // Sem zona segura / sem reparos na plataforma no Modo Infinito!
         floatingTexts.push(new FloatingText(player.x, player.y - 40, `ESQUADRÃO DESTRUÍDO! +${stageBonus} PTS`, '#ffe600', 16));
         updateHUD();
         return;
@@ -1706,7 +1663,6 @@ function openCombatBuffModal() {
     keys['Space'] = false;
     mouse.down = false;
 
-    // No Modo Infinito, os limites são removidos (99) para escalar quase infinitamente
     const available = COMBAT_BUFFS.filter(u => {
         const limit = isInfiniteMode ? 99 : u.maxLvl;
         return (player.buffLevels[u.id] || 0) < limit;
@@ -1943,6 +1899,7 @@ function launchNextStage() {
 // ================= RENDERIZAÇÃO DE SKINS (MENU E HANGAR) =================
 function renderSkinCards(containerId, useRunPoints) {
     const container = document.getElementById(containerId);
+    if (!container) return;
     container.innerHTML = '';
 
     SHIP_SKINS.forEach(skin => {
@@ -1991,7 +1948,7 @@ function updateMenuUI() {
 
 let previewAngle = 0;
 function animateMenuPreview() {
-    if (gameState === 'MENU') {
+    if (gameState === 'MENU' && pCtx) {
         pCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         previewAngle += 0.02;
         pCtx.save();
@@ -2102,6 +2059,7 @@ function checkCollisions() {
     for (let b of bullets) {
         if (b.dead) continue;
 
+        // Vs Inimigos
         for (let e of enemies) {
             if (!e.dead && Math.hypot(b.x - e.x, b.y - e.y) < e.radius + b.radius) {
                 b.dead = true;
@@ -2110,6 +2068,7 @@ function checkCollisions() {
             }
         }
 
+        // Vs Mísseis Teleguiados
         if (!b.dead) {
             for (let eb of enemyBullets) {
                 if (!eb.dead && eb.homing && Math.hypot(b.x - eb.x, b.y - eb.y) < eb.radius + b.radius + 4) {
@@ -2124,6 +2083,7 @@ function checkCollisions() {
             }
         }
 
+        // Vs Asteroides
         if (!b.dead) {
             for (let ast of asteroids) {
                 if (!ast.dead && Math.hypot(b.x - ast.x, b.y - ast.y) < ast.radius + b.radius) {
@@ -2134,6 +2094,13 @@ function checkCollisions() {
                         ast.dead = true;
                         createExplosion(ast.x, ast.y, '#00ff88', 18);
                         addScore(90);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Vs Chefões
         if (!b.dead && bosses.length > 0) {
             for (let bossObj of bosses) {
                 if (!bossObj.dead && Math.hypot(b.x - bossObj.x, b.y - bossObj.y) < bossObj.radius + b.radius) {
@@ -2145,6 +2112,7 @@ function checkCollisions() {
         }
     }
 
+    // Tiros Inimigos vs Jogador
     for (let eb of enemyBullets) {
         if (!eb.dead && Math.hypot(eb.x - player.x, eb.y - player.y) < player.radius + eb.radius) {
             eb.dead = true;
@@ -2152,6 +2120,7 @@ function checkCollisions() {
         }
     }
 
+    // Inimigos vs Jogador
     for (let e of enemies) {
         if (!e.dead && Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius - 4) {
             const crashDmg = isInfiniteMode ? Math.round(18 * (1 + (stage - 1) * 0.2)) : 18;
@@ -2160,6 +2129,7 @@ function checkCollisions() {
         }
     }
 
+    // Asteroides vs Jogador
     for (let ast of asteroids) {
         if (!ast.dead && Math.hypot(ast.x - player.x, ast.y - player.y) < ast.radius + player.radius - 4) {
             ast.dead = true;
@@ -2168,6 +2138,7 @@ function checkCollisions() {
         }
     }
 
+    // Chefões vs Jogador
     for (let bossObj of bosses) {
         if (!bossObj.dead && Math.hypot(bossObj.x - player.x, bossObj.y - player.y) < bossObj.radius + player.radius) {
             player.takeDamage(24);
