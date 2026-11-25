@@ -105,24 +105,32 @@
 
         <!-- ================= 3. ZONA SEGURA / HANGAR ENTRE FASES ================= -->
         <div id="safezone-screen" class="overlay-screen hidden">
-            <h1 style="font-size: 1.8rem; background: linear-gradient(90deg, #00ff88, #00f3ff); -webkit-background-clip: text;">ZONA SEGURA — HANGAR INTERGALÁCTICO</h1>
-            <p class="subtitle">Chefão neutralizado! Use seus pontos acumulados (<strong id="hangar-points" style="color:#ffe600;">0</strong> pts) para reparar e equipar sua nave.</p>
+            <h1 style="font-size: 1.7rem; background: linear-gradient(90deg, #00ff88, #00f3ff); -webkit-background-clip: text;">ZONA SEGURA — OFICINA ORBITAL</h1>
+            <p class="subtitle">Chefão neutralizado! Créditos disponíveis: <strong id="hangar-points" style="color:#ffe600;">0</strong> pts. Instale melhorias visuais e estruturais na sua nave.</p>
 
             <div class="hangar-layout">
+                <!-- Coluna Esquerda: Manutenção e Melhorias Permanentes -->
                 <div class="hangar-box">
-                    <h3>🔧 MANUTENÇÃO & MELHORIAS PERMANENTES</h3>
+                    <h3>🔧 BANCADA DE MELHORIAS PERMANENTES</h3>
                     <div id="hangar-upgrades-list" style="display:flex; flex-direction:column; gap:7px;"></div>
                 </div>
 
-                <div class="hangar-box">
-                    <h3>🎨 SKINS DE CHASSIS</h3>
-                    <div id="hangar-skins-list" class="skins-list" style="grid-template-columns: 1fr 1fr;"></div>
-
+                <!-- Coluna Central: Oficina Visual com Preview Evolutivo -->
+                <div class="hangar-box workshop-bay">
+                    <h3>🛠️ DOCA DE MANUTENÇÃO & TELEMETRIA</h3>
+                    <canvas id="workshopCanvas" width="240" height="195"></canvas>
+                    <div id="workshop-modules-tags" class="modules-tags"></div>
                     <div class="next-sector-card">
                         <span class="hud-label" style="color:#ff00ea;">⚠️ RADAR DO PRÓXIMO SETOR (FASE <span id="next-stage-num">2</span>/5)</span>
-                        <div id="next-sector-title" style="font-size: 0.9rem; font-weight: 900; color: #ffe600; margin: 4px 0;">TEMPESTADE IÔNICA</div>
-                        <div id="next-sector-desc" style="font-size: 0.7rem; color: #e2e8f0;">Descargas elétricas aumentam a velocidade de todos os projéteis em +20%.</div>
+                        <div id="next-sector-title" style="font-size: 0.85rem; font-weight: 900; color: #ffe600; margin: 3px 0;">TEMPESTADE IÔNICA</div>
+                        <div id="next-sector-desc" style="font-size: 0.66rem; color: #e2e8f0;">Descargas elétricas aumentam a velocidade de todos os projéteis em +20%.</div>
                     </div>
+                </div>
+
+                <!-- Coluna Direita: Skins -->
+                <div class="hangar-box">
+                    <h3>🎨 SKINS DE CHASSIS</h3>
+                    <div id="hangar-skins-list" class="skins-list" style="grid-template-columns: 1fr;"></div>
                 </div>
             </div>
 
